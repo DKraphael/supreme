@@ -1,0 +1,22 @@
+name: Announce update
+on:
+  push:
+    branches: [main]
+    paths: ['values.json']
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send to Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          MSG: ${{ github.event.head_commit.message }}
+          URL: ${{ github.event.head_commit.url }}
+        run: |
+          TITLE=$(printf '%s' "$MSG" | head -n1)
+          BODY=$(printf '%s' "$MSG" | tail -n +2 | sed '1{/^$/d}')
+          jq -n --arg title "$TITLE" --arg body "$BODY" --arg url "$URL" '
+            {embeds: [ ({title: ($title|.[0:256]), url: $url, color: 5763719}
+              + (if $body == "" then {} else {description: ($body|.[0:4000])} end)) ]}
+          ' | curl -sS -H "Content-Type: application/json" -d @- "$WEBHOOK"
